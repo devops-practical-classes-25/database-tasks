@@ -1,49 +1,60 @@
-CREATE TABLE public.sex (
-	id serial NOT NULL,
-	name varchar(20),
-	CONSTRAINT sex_unique_constraint UNIQUE (name),
-	CONSTRAINT sex_pk PRIMARY KEY (id)
+-- Создание таблицы книг
+CREATE TABLE book (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    author_id INTEGER NOT NULL,
+    year_published INTEGER NOT NULL,
+    FOREIGN KEY (author_id) REFERENCES author(id) ON DELETE CASCADE
 );
 
-INSERT INTO public.sex (id, name) VALUES (E'1', E'male');
-INSERT INTO public.sex (id, name) VALUES (E'2', E'female');
-
-CREATE TABLE public.person (
-	id serial NOT NULL,
-	name varchar(255) NOT NULL,
-	birth_date date NOT NULL,
-	sex_id integer NOT NULL,
-	CONSTRAINT person_pk PRIMARY KEY (id)
+-- Создание таблицы читателей
+CREATE TABLE reader (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE
 );
 
-ALTER TABLE public.person ADD CONSTRAINT fk_person_sex FOREIGN KEY (sex_id)
-REFERENCES public.sex (id);
-
-INSERT INTO public.person (id, name, birth_date, sex_id) VALUES (1, 'John Dow', '2000-01-01', 1);
-INSERT INTO public.person (id, name, birth_date, sex_id) VALUES (2, 'Jane Dow', '2001-06-15', 2);
-
-
-CREATE TABLE public.student_group (
-	id serial NOT NULL,
-	name varchar(255) NOT NULL,
-	CONSTRAINT student_group_unique_constraint UNIQUE (name),
-	CONSTRAINT student_group_pk PRIMARY KEY (id)
+-- Создание таблицы выдачи книг
+CREATE TABLE loan (
+    id SERIAL PRIMARY KEY,
+    book_id INTEGER NOT NULL,
+    reader_id INTEGER NOT NULL,
+    loan_date DATE NOT NULL,
+    return_date DATE NULL,
+    FOREIGN KEY (book_id) REFERENCES book(id) ON DELETE CASCADE,
+    FOREIGN KEY (reader_id) REFERENCES reader(id) ON DELETE CASCADE
 );
 
-INSERT INTO public.student_group (id, name) VALUES (1, 'test-25-1');
-INSERT INTO public.student_group (id, name) VALUES (2, 'test-25-2');
+-- Наполнение таблицы author тестовыми данными
+INSERT INTO author (name, birth_year) VALUES
+('Лев Толстой', 1828),
+('Фёдор Достоевский', 1821),
+('Антон Чехов', 1860);
 
+-- Наполнение таблицы book тестовыми данными
+INSERT INTO book (title, author_id, year_published) VALUES
+('Война и мир', 1, 1869),
+('Преступление и наказание', 2, 1866),
+('Чайка', 3, 1896);
 
-CREATE TABLE public.student (
-	id serial NOT NULL,
-	person_id INTEGER NOT NULL,
-	student_group_id INTEGER NOT NULL,
-	CONSTRAINT student_pk PRIMARY KEY (id)
-);
-ALTER TABLE public.student ADD CONSTRAINT fk_student_person FOREIGN KEY (person_id)
-REFERENCES public.person (id);
-ALTER TABLE public.student ADD CONSTRAINT fk_student_student_group FOREIGN KEY (student_group_id)
-REFERENCES public.student_group (id);
+-- Наполнение таблицы reader тестовыми данными
+INSERT INTO reader (name, email) VALUES
+('Иван Иванов', 'ivanov@example.com'),
+('Мария Смирнова', 'smirnova@example.com'),
+('Алексей Петров', 'petrov@example.com');
 
-INSERT INTO public.student (id, person_id, student_group_id) VALUES (1, 1, 1);
-INSERT INTO public.student (id, person_id, student_group_id) VALUES (2, 2, 2);
+-- Наполнение таблицы loan тестовыми данными
+INSERT INTO loan (book_id, reader_id, loan_date, return_date) VALUES
+(1, 1, '2024-03-01', NULL), -- Книга еще не возвращена
+(2, 2, '2024-02-20', '2024-03-10'), -- Книга возвращена
+(3, 3, '2024-03-05', NULL); -- Книга еще не возвращена
+
+-- SQL-запрос для получения списка книг, которые находятся у читателей на руках
+SELECT 
+    book.title AS "Название книги",
+    reader.name AS "Читатель",
+    loan.loan_date AS "Дата выдачи"
+FROM loan
+JOIN book ON loan.book_id = book.id
+JOIN reader ON loan.reader_id = reader.id
+WHERE loan.return_date IS NULL;

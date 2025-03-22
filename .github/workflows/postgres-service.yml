@@ -5,14 +5,14 @@ on:
     branches:
       - main
   pull_request:
-    branches:
+      branches:
       - main
 
 jobs:
   container-job:
     runs-on: ubuntu-latest
     container:
-      image: node:10.16-jessie
+      image: python:3.10 
 
     services:
       postgres:
@@ -25,16 +25,19 @@ jobs:
           - 5433:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         volumes:
-          - ./init:/docker-entrypoint-initdb.d  # Монтируем init.sql и init-db.sh
+          - ./init:/docker-entrypoint-initdb.d 
 
     steps:
-      - uses: actions/checkout@v4  # Обновленная версия checkout
-      - run: ls -la  # Проверяем, какие файлы есть в репозитории
-      - run: ls -la ./postgres || echo "Папка postgres отсутствует!"  # Проверяем папку postgres
-      - run: npm ci
-        working-directory: ./postgres
-        continue-on-error: true  # Если папки нет, не прерываем выполнение
-      - run: ./init/init-db.sh  # Запускаем инициализацию БД
+      - uses: actions/checkout@v4
+      - run: ls -la 
+
+      - name: Установка зависимостей
+        run: |
+          pip install poetry
+          poetry install
+
+      - name: Инициализация базы данных
+        run: ./init/init-db.sh
         env:
           POSTGRES_USER: demo
           POSTGRES_PASSWORD: demo
@@ -42,8 +45,9 @@ jobs:
           DB_USER: demo
           DB_PASSWORD: demo
           DB_NAME: demo
-      - run: pytest test_database.py  # Запуск тестов
-        working-directory: ./postgres
+
+      - name: Запуск тестов
+        run: poetry run pytest tests/test_database.py
         env:
           POSTGRES_HOST: postgres
           POSTGRES_PORT: 5433
@@ -70,11 +74,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ls -la
-      - run: ls -la ./postgres || echo "Папка postgres отсутствует!"
-      - run: npm ci
-        working-directory: ./postgres
-        continue-on-error: true
-      - run: ./init/init-db.sh
+
+      - name: Установка зависимостей
+        run: |
+          pip install poetry
+          poetry install
+
+      - name: Инициализация базы данных
+        run: ./init/init-db.sh
         env:
           POSTGRES_USER: demo
           POSTGRES_PASSWORD: demo
@@ -82,8 +89,9 @@ jobs:
           DB_USER: demo
           DB_PASSWORD: demo
           DB_NAME: demo
-      - run: pytest test_database.py
-        working-directory: ./postgres
+
+      - name: Запуск тестов
+        run: poetry run pytest tests/test_database.py
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5433
