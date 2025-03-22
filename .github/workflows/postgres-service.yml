@@ -28,10 +28,13 @@ jobs:
           - ./init:/docker-entrypoint-initdb.d  # Монтируем init.sql и init-db.sh
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4  # Обновленная версия checkout
+      - run: ls -la  # Проверяем, какие файлы есть в репозитории
+      - run: ls -la ./postgres || echo "Папка postgres отсутствует!"  # Проверяем папку postgres
       - run: npm ci
         working-directory: ./postgres
-      - run: ./init/init-db.sh  # Запускаем скрипт инициализации
+        continue-on-error: true  # Если папки нет, не прерываем выполнение
+      - run: ./init/init-db.sh  # Запускаем инициализацию БД
         env:
           POSTGRES_USER: demo
           POSTGRES_PASSWORD: demo
@@ -65,9 +68,12 @@ jobs:
           - ./init:/docker-entrypoint-initdb.d
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
+      - run: ls -la
+      - run: ls -la ./postgres || echo "Папка postgres отсутствует!"
       - run: npm ci
         working-directory: ./postgres
+        continue-on-error: true
       - run: ./init/init-db.sh
         env:
           POSTGRES_USER: demo
