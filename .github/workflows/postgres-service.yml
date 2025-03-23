@@ -5,14 +5,14 @@ on:
     branches:
       - main
   pull_request:
-      branches:
+    branches:
       - main
 
 jobs:
   container-job:
     runs-on: ubuntu-latest
     container:
-      image: python:3.10 
+      image: python:3.12  # Обновил версию Python с 3.10 на 3.12
 
     services:
       postgres:
@@ -29,31 +29,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - run: ls -la 
 
-      - name: Установка зависимостей
-        run: |
-          pip install poetry
-          poetry install
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"  # Используем версию 3.12 для совместимости с проектом
 
-      - name: Инициализация базы данных
-        run: ./init/init-db.sh
-        env:
-          POSTGRES_USER: demo
-          POSTGRES_PASSWORD: demo
-          POSTGRES_DB: demo
-          DB_USER: demo
-          DB_PASSWORD: demo
-          DB_NAME: demo
+      - name: Install Poetry
+        run: pip install --upgrade poetry
 
-      - name: Запуск тестов
-        run: poetry run pytest tests/test_database.py
-        env:
-          POSTGRES_HOST: postgres
-          POSTGRES_PORT: 5433
-          DB_USER: demo
-          DB_PASSWORD: demo
-          DB_NAME: demo
+      - name: Configure Poetry Environment
+        run: poetry env use python3.12  # Указываем, какую версию Python использовать
+
+      - name: Install dependencies
+        run: poetry install
 
   vm-job:
     runs-on: ubuntu-latest
