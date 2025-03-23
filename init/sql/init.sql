@@ -1,3 +1,10 @@
+-- Создание таблицы авторов
+CREATE TABLE author (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    birth_year INTEGER NOT NULL
+);
+
 -- Создание таблицы книг
 CREATE TABLE book (
     id SERIAL PRIMARY KEY,

@@ -23,8 +23,8 @@ def test_author_data(db_session):
     data = result.fetchall()
     assert len(data) == 3  # Должно быть три автора
     assert data[0] == ("Антон Чехов", 1860)
-    assert data[1] == ("Фёдор Достоевский", 1821)
-    assert data[2] == ("Лев Толстой", 1828)
+    assert data[1] == ("Лев Толстой", 1828)
+    assert data[2] == ("Фёдор Достоевский", 1821)
 
 
 def test_book_data(db_session):
@@ -61,8 +61,8 @@ def test_reader_data(db_session):
     data = result.fetchall()
     assert len(data) == 3  # Должно быть три читателя
     assert data[0] == ("Алексей Петров", "petrov@example.com")
-    assert data[1] == ("Мария Смирнова", "smirnova@example.com")
-    assert data[2] == ("Иван Иванов", "ivanov@example.com")
+    assert data[1] == ("Иван Иванов", "ivanov@example.com")
+    assert data[2] == ("Мария Смирнова", "smirnova@example.com")
 
 
 def test_loan_data(db_session):
@@ -79,9 +79,9 @@ def test_loan_data(db_session):
     assert result
     data = result.fetchall()
     assert len(data) == 3  # Должно быть три записи о выдаче книг
-    assert data[0] == (1, 1, datetime.date(2024, 3, 1), None)  # "Война и мир" - еще не возвращена
-    assert data[1] == (2, 2, datetime.date(2024, 2, 20), datetime.date(2024, 3, 10))  # "Преступление и наказание" - возвращена
-    assert data[2] == (3, 3, datetime.date(2024, 3, 5), None)  # "Чайка" - еще не возвращена
+    assert data[0] == (2, 2, datetime.date(2024, 2, 20), datetime.date(2024, 3, 10))  # Преступление и наказание
+    assert data[1] == (1, 1, datetime.date(2024, 3, 1), None)  # Война и мир
+    assert data[2] == (3, 3, datetime.date(2024, 3, 5), None)  # Чайка
 
 
 def test_books_with_loaned_status(db_session):
@@ -145,9 +145,9 @@ def test_books_loan_by_reader(db_session):
             JOIN book ON loan.book_id = book.id
             JOIN reader ON loan.reader_id = reader.id
             WHERE reader.name = :reader_name AND loan.return_date IS NULL
-            """,
-            {"reader_name": reader_name}
-        )
+            """
+        ), 
+        {"reader_name": reader_name}  # Параметры передаются отдельно
     )
 
     assert result
@@ -171,9 +171,9 @@ def test_loaned_books_by_author(db_session):
             JOIN reader ON loan.reader_id = reader.id
             JOIN author ON book.author_id = author.id
             WHERE author.name = :author_name AND loan.return_date IS NULL
-            """,
-            {"author_name": author_name}
-        )
+            """
+        ), 
+        {"author_name": author_name}  # Параметры передаются отдельно
     )
 
     assert result
