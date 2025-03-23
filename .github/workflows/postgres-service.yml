@@ -5,14 +5,14 @@ on:
     branches:
       - main
   pull_request:
-      branches:
+    branches:
       - main
 
 jobs:
   container-job:
     runs-on: ubuntu-latest
     container:
-      image: python:3.10 
+      image: python:3.12
 
     services:
       postgres:
@@ -25,7 +25,7 @@ jobs:
           - 5433:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         volumes:
-          - ./init:/docker-entrypoint-initdb.d 
+          - ./init:/docker-entrypoint-initdb.d
 
     steps:
       - uses: actions/checkout@v4
@@ -89,6 +89,18 @@ jobs:
           DB_USER: demo
           DB_PASSWORD: demo
           DB_NAME: demo
+
+      - name: Применение миграций с Alembic
+        run: |
+          poetry run alembic upgrade head
+        env:
+          POSTGRES_USER: demo
+          POSTGRES_PASSWORD: demo
+          POSTGRES_DB: demo
+          DB_USER: demo
+          DB_PASSWORD: demo
+          DB_NAME: demo
+          DATABASE_URL: postgresql://demo:demo@localhost:5433/demo
 
       - name: Запуск тестов
         run: poetry run pytest tests/test_database.py
