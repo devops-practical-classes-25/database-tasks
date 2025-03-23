@@ -3,10 +3,10 @@ name: Postgres Service Example
 on:
   push:
     branches:
-      - main
+      - "*"
   pull_request:
     branches:
-      - main
+      - "*"
 
 jobs:
   container-job:
