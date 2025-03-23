@@ -16,11 +16,11 @@ jobs:
       postgres:
         image: postgres:10.8
         env:
-          POSTGRES_USER: demo
-          POSTGRES_PASSWORD: demo
-          POSTGRES_DB: demo
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
         ports:
-          - 5432:5432
+          - 5433:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         volumes:
           - ./init:/docker-entrypoint-initdb.d
@@ -42,9 +42,9 @@ jobs:
       - name: Инициализация базы данных
         run: ./init/init-db.sh
         env:
-          POSTGRES_USER: demo
-          POSTGRES_PASSWORD: demo
-          POSTGRES_DB: demo
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
           DB_USER: demo
           DB_PASSWORD: demo
           DB_NAME: demo
@@ -65,9 +65,9 @@ jobs:
       postgres:
         image: postgres:10.8
         env:
-          POSTGRES_USER: demo
-          POSTGRES_PASSWORD: demo
-          POSTGRES_DB: demo
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
         ports:
           - 5433/tcp
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
@@ -91,9 +91,9 @@ jobs:
       - name: Инициализация базы данных
         run: ./init/init-db.sh
         env:
-          POSTGRES_USER: demo
-          POSTGRES_PASSWORD: demo
-          POSTGRES_DB: demo
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
           DB_USER: demo
           DB_PASSWORD: demo
           DB_NAME: demo
@@ -102,9 +102,9 @@ jobs:
         run: |
           poetry run alembic upgrade head
         env:
-          POSTGRES_USER: demo
-          POSTGRES_PASSWORD: demo
-          POSTGRES_DB: demo
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
           DB_USER: demo
           DB_PASSWORD: demo
           DB_NAME: demo
