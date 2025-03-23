@@ -21,7 +21,7 @@ def test_author_data(db_session):
 
     assert result
     data = result.fetchall()
-    assert len(data) == 3  # Должно быть три автора
+    assert len(data) == 3
     assert data[0] == ("Антон Чехов", 1860)
     assert data[1] == ("Лев Толстой", 1828)
     assert data[2] == ("Фёдор Достоевский", 1821)
@@ -40,7 +40,7 @@ def test_book_data(db_session):
 
     assert result
     data = result.fetchall()
-    assert len(data) == 3  # Должно быть три книги
+    assert len(data) == 3
     assert data[0] == ("Война и мир", 1, 1869)
     assert data[1] == ("Преступление и наказание", 2, 1866)
     assert data[2] == ("Чайка", 3, 1896)
@@ -59,7 +59,7 @@ def test_reader_data(db_session):
 
     assert result
     data = result.fetchall()
-    assert len(data) == 3  # Должно быть три читателя
+    assert len(data) == 3
     assert data[0] == ("Алексей Петров", "petrov@example.com")
     assert data[1] == ("Иван Иванов", "ivanov@example.com")
     assert data[2] == ("Мария Смирнова", "smirnova@example.com")
