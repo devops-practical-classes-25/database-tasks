@@ -3,16 +3,14 @@ name: Postgres Service Example
 on:
   push:
     branches:
-      - "*"
+      - main
   pull_request:
     branches:
-      - "*"
+      - main
 
 jobs:
   container-job:
     runs-on: ubuntu-latest
-    container:
-      image: python:3.12
 
     services:
       postgres:
@@ -34,23 +32,15 @@ jobs:
       - name: Установка Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.11"  # Используем 3.11 вместо 3.12
 
-      - name: Проверка версии Python
-        run: python --version
-
-      - name: Проверка версии Poetry
-        run: poetry --version
-
-      - name: Установка зависимостей
+      - name: Установка Poetry и зависимостей
         run: |
           pip install poetry
-          poetry install -vvv  # Для подробных логов установки зависимостей
+          poetry install
 
       - name: Инициализация базы данных
-        run: |
-          sleep 10  # Задержка для гарантии, что PostgreSQL полностью инициализирован
-          ./init/init-db.sh
+        run: ./init/init-db.sh
         env:
           POSTGRES_USER: demo
           POSTGRES_PASSWORD: demo
@@ -91,17 +81,15 @@ jobs:
       - name: Установка Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.11"
 
-      - name: Установка зависимостей
+      - name: Установка Poetry и зависимостей
         run: |
           pip install poetry
-          poetry install -vvv
+          poetry install
 
       - name: Инициализация базы данных
-        run: |
-          sleep 10
-          ./init/init-db.sh
+        run: ./init/init-db.sh
         env:
           POSTGRES_USER: demo
           POSTGRES_PASSWORD: demo
