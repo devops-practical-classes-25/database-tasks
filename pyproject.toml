@@ -1,7 +1,7 @@
 [project]
-name = "dbms-tasks"
+name = "database-tasks"
 version = "0.1.0"
-description = "Tests for dbms tasks"
+description = "Tests for database tasks"
 authors = [
     {name = "UlianaDegtiareva",email = "uvdegtiareva@edu.hse.ru"}
 ]
