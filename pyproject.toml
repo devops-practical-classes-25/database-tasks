@@ -1,9 +1,9 @@
 [project]
-name = "dbms-tasks"
+name = "database-tasks"
 version = "0.1.0"
 description = "Tests for dbms tasks"
 authors = [
-    {name = "MikhailovAlexander",email = "AVMikhailov@hse.ru"}
+    {name = "UlianaDegtiareva",email = "uvdegtiareva@edu.hse.ru"}
 ]
 license = {text = "MIT"}
 readme = "README.md"
