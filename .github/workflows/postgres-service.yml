@@ -2,34 +2,42 @@ name: Postgres Service Example
 
 on:
   push:
-    branches:
-      - "*"
+    branches: ["*"]
   pull_request:
-    branches:
-      - "*"
+    branches: ["*"]
 
 jobs:
   container-job:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     services:
       postgres:
-        image: postgres
+        image: postgres:15
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: demo
+          POSTGRES_DB: postgres  # Важно оставить 'postgres' для инициализации
+          DB_USER: demo
+          DB_PASSWORD: demo
+          DB_NAME: demo
         ports:
           - 5433:5432
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
         volumes:
-          - ./init:/docker-entrypoint-initdb.d
+          - ./database_tasks/init:/docker-entrypoint-initdb.d
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Просмотр содержимого
-        run: ls -la
+      - name: Установка зависимостей
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
 
       - name: Установка Python 3.12
         uses: actions/setup-python@v4
@@ -39,38 +47,57 @@ jobs:
       - name: Установка Poetry и зависимостей
         run: |
           pip install poetry
-          poetry install
+          poetry install --no-interaction --no-ansi
+
+      - name: Проверка инициализации БД
+        run: |
+          echo "Проверка существования пользователя demo:"
+          PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -c "\du"
+          echo "Проверка существования БД demo:"
+          PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -c "\l"
+          echo "Проверка таблиц в БД demo:"
+          PGPASSWORD=demo psql -h localhost -p 5433 -U demo -d demo -c "\dt" || echo "Таблицы еще не созданы"
 
       - name: Запуск тестов (container-job)
-        run: poetry run pytest tests/test_database.py
+        run: poetry run pytest database_tasks/tests/test_database.py -v
         env:
-          POSTGRES_HOST: postgres
+          POSTGRES_HOST: localhost
           POSTGRES_PORT: 5433
-          DB_USER: postgres
-          DB_PASSWORD: postgres
+          DB_USER: demo
+          DB_PASSWORD: demo
           DB_NAME: demo
 
   vm-job:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     services:
       postgres:
-        image: postgres
+        image: postgres:15
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: demo
+          POSTGRES_DB: postgres
+          DB_USER: demo
+          DB_PASSWORD: demo
+          DB_NAME: demo
         ports:
-          - 5433/tcp
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
         volumes:
-          - ./init:/docker-entrypoint-initdb.d
+          - ./database_tasks/init:/docker-entrypoint-initdb.d
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Просмотр содержимого
-        run: ls -la
+      - name: Установка зависимостей
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
 
       - name: Установка Python 3.12
         uses: actions/setup-python@v4
@@ -80,20 +107,30 @@ jobs:
       - name: Установка Poetry и зависимостей
         run: |
           pip install poetry
-          poetry install
+          poetry install --no-interaction --no-ansi
 
-      - name: Применение миграций (Alembic)
+      - name: Проверка инициализации БД
         run: |
-          poetry run alembic upgrade head
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5433/demo
+          echo "Проверка существования пользователя demo:"
+          PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -c "\du"
+          echo "Проверка существования БД demo:"
+          PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -c "\l"
+          echo "Проверка таблиц в БД demo:"
+          PGPASSWORD=demo psql -h localhost -p 5433 -U demo -d demo -c "\dt" || echo "Таблицы еще не созданы"
 
       - name: Запуск тестов (vm-job)
-        run: poetry run pytest tests/test_database.py
+        run: poetry run pytest database_tasks/tests/test_database.py -v
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5433
-          DB_USER: postgres
-          DB_PASSWORD: postgres
+          DB_USER: demo
+          DB_PASSWORD: demo
           DB_NAME: demo
 
+      - name: Сохранение логов при ошибке
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: postgres-logs
+          path: |
+            $(docker inspect --format='{{.LogPath}}' $(docker ps -aqf "name=postgres"))
