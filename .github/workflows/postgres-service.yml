@@ -1,4 +1,4 @@
-nname: PostgreSQL Service Testing
+name: PostgreSQL Service Testing
 
 on:
   push:
