@@ -1,4 +1,4 @@
-name: Postgres Service Example
+nname: PostgreSQL Service Testing
 
 on:
   push:
@@ -9,112 +9,87 @@ on:
       - "*"
 
 jobs:
-  container-job:
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     services:
       postgres:
-        image: postgres
+        image: postgres:15-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
         ports:
-          - 5433:5432
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
         volumes:
-          - ./init:/docker-entrypoint-initdb.d
+          - ./database_tasks/init/sql:/docker-entrypoint-initdb.d
 
     steps:
       - uses: actions/checkout@v4
-      - run: ls -la
 
-      - name: Установка Python
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
-      - name: Установка Poetry и зависимостей
+      - name: Install Python dependencies
         run: |
           pip install poetry
-          poetry install
+          poetry install --no-interaction --no-ansi
 
-      - name: Ожидание готовности PostgreSQL
+      - name: Wait for PostgreSQL to be ready
         run: |
-          for i in {1..10}; do
-            if pg_isready -h postgres -p 5432 -U postgres; then
-              echo "PostgreSQL готов"
+          for i in {1..15}; do
+            if pg_isready -h localhost -p 5432 -U postgres -d postgres; then
+              echo "PostgreSQL is ready"
               exit 0
             fi
-            echo "Ожидание PostgreSQL... ($i/10)"
+            echo "Waiting for PostgreSQL... (attempt $i/15)"
             sleep 2
           done
-          echo "PostgreSQL не запустился"
+          echo "PostgreSQL failed to start"
+          docker logs $(docker ps -aqf "name=postgres")
           exit 1
 
-      - name: Запуск тестов
-        run: poetry run pytest tests/test_database.py
+      - name: Verify database initialization
+        run: |
+          echo "Listing all tables:"
+          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "\dt"
+          
+          echo "Checking author table content:"
+          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "SELECT * FROM author;"
+          
+          echo "Checking demo user exists:"
+          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "\du"
+
+      - name: Run database tests
+        run: |
+          poetry run pytest database_tasks/tests/test_database.py -v --cov=./ --cov-report=xml
         env:
-          POSTGRES_HOST: postgres
-          POSTGRES_PORT: 5432
-          POSTGRES_USER: demo
-          POSTGRES_PASSWORD: demo
-          POSTGRES_DB: demo
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          DB_USER: demo
+          DB_PASSWORD: demo
+          DB_NAME: demo
 
-  vm-job:
-    runs-on: ubuntu-latest
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        if: always()
 
-    services:
-      postgres:
-        image: postgres
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-        ports:
-          - 5433:5432
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-        volumes:
-          - ./init:/docker-entrypoint-initdb.d
-
-    steps:
-      - uses: actions/checkout@v4
-      - run: ls -la
-
-      - name: Установка Python
-        uses: actions/setup-python@v4
+      - name: Archive logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v3
         with:
-          python-version: "3.11"
-
-      - name: Установка Poetry и зависимостей
-        run: |
-          pip install poetry
-          poetry install
-
-      - name: Ожидание готовности PostgreSQL
-        run: |
-          for i in {1..10}; do
-            if pg_isready -h localhost -p 5433 -U postgres; then
-              echo "PostgreSQL готов"
-              exit 0
-            fi
-            echo "Ожидание PostgreSQL... ($i/10)"
-            sleep 2
-          done
-          echo "PostgreSQL не запустился"
-          exit 1
-
-      - name: Применение миграций с Alembic
-        run: |
-          poetry run alembic upgrade head
-        env:
-          DATABASE_URL: postgresql://demo:demo@localhost:5433/demo
-
-      - name: Запуск тестов
-        run: poetry run pytest tests/test_database.py
-        env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5433
-          POSTGRES_USER: demo
-          POSTGRES_PASSWORD: demo
-          POSTGRES_DB: demo
+          name: postgres-logs
+          path: |
+            $(docker inspect --format='{{.LogPath}}' $(docker ps -aqf "name=postgres"))
