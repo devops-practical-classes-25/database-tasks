@@ -33,10 +33,13 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         volumes:
-          - ./database_tasks/init:/docker-entrypoint-initdb.d
+          - ./database_tasks/init/sql:/docker-entrypoint-initdb.d
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Дать права на чтение init.sql
+        run: chmod +r ./database_tasks/init/sql/init.sql
 
       - name: Просмотр содержимого
         run: ls -la
@@ -87,11 +90,13 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         volumes:
-          - ./database_tasks/init:/docker-entrypoint-initdb.d
-
+          - ./database_tasks/init/sql:/docker-entrypoint-initdb.d
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Дать права на чтение
+        run: chmod +r ./database_tasks/init/sql/init.sql
 
       - name: Просмотр содержимого
         run: ls -la
