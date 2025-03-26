@@ -1,4 +1,4 @@
-name: PostgreSQL Service Testing
+name: Postgres Service Example
 
 on:
   push:
@@ -9,87 +9,92 @@ on:
       - "*"
 
 jobs:
-  test:
+  container-job:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
 
     services:
       postgres:
-        image: postgres:15-alpine
+        image: postgres  # Используется последняя версия PostgreSQL
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
         ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          - 5433:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         volumes:
-          - ./database_tasks/init/sql:/docker-entrypoint-initdb.d
+          - ./init:/docker-entrypoint-initdb.d  # Скрипты выполняются автоматически
 
     steps:
       - uses: actions/checkout@v4
+      - run: ls -la
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
-      - name: Set up Python 3.11
+      - name: Установка Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
-      - name: Install Python dependencies
+      - name: Установка Poetry и зависимостей
         run: |
           pip install poetry
-          poetry install --no-interaction --no-ansi
+          poetry install
 
-      - name: Wait for PostgreSQL to be ready
-        run: |
-          for i in {1..15}; do
-            if pg_isready -h localhost -p 5432 -U postgres -d postgres; then
-              echo "PostgreSQL is ready"
-              exit 0
-            fi
-            echo "Waiting for PostgreSQL... (attempt $i/15)"
-            sleep 2
-          done
-          echo "PostgreSQL failed to start"
-          docker logs $(docker ps -aqf "name=postgres")
-          exit 1
-
-      - name: Verify database initialization
-        run: |
-          echo "Listing all tables:"
-          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "\dt"
-          
-          echo "Checking author table content:"
-          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "SELECT * FROM author;"
-          
-          echo "Checking demo user exists:"
-          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "\du"
-
-      - name: Run database tests
-        run: |
-          poetry run pytest database_tasks/tests/test_database.py -v --cov=./ --cov-report=xml
+      - name: Запуск тестов
+        run: poetry run pytest tests/test_database.py
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          POSTGRES_HOST: postgres
+          POSTGRES_PORT: 5433
           DB_USER: demo
           DB_PASSWORD: demo
           DB_NAME: demo
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        if: always()
+  vm-job:
+    runs-on: ubuntu-latest
 
-      - name: Archive logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v3
+    services:
+      postgres:
+        image: postgres  # Используется последняя версия PostgreSQL
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5433/tcp
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+        volumes:
+          - ./init:/docker-entrypoint-initdb.d  # Автоинициализация БД
+
+    steps:
+      - uses: actions/checkout@v4
+      - run: ls -la
+
+      - name: Установка Python
+        uses: actions/setup-python@v4
         with:
-          name: postgres-logs
-          path: |
-            $(docker inspect --format='{{.LogPath}}' $(docker ps -aqf "name=postgres"))
+          python-version: "3.11"
+
+      - name: Установка Poetry и зависимостей
+        run: |
+          pip install poetry
+          poetry install
+
+      - name: Применение миграций с Alembic
+        run: |
+          poetry run alembic upgrade head
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+          DB_USER: demo
+          DB_PASSWORD: demo
+          DB_NAME: demo
+          DATABASE_URL: postgresql://demo:demo@localhost:5433/demo
+
+      - name: Запуск тестов
+        run: poetry run pytest tests/test_database.py
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5433
+          DB_USER: demo
+          DB_PASSWORD: demo
+          DB_NAME: demo
