@@ -14,62 +14,13 @@ jobs:
 
     services:
       postgres:
-        image: postgres:10.8
+        image: postgres
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
         ports:
           - 5433:5432
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-        volumes:
-          - ./init:/docker-entrypoint-initdb.d
-
-    steps:
-      - uses: actions/checkout@v4
-      - run: ls -la
-
-      - name: Установка Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"  # Используем 3.11 вместо 3.12
-
-      - name: Установка Poetry и зависимостей
-        run: |
-          pip install poetry
-          poetry install
-
-      - name: Инициализация базы данных
-        run: ./init/init-db.sh
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-          DB_USER: demo
-          DB_PASSWORD: demo
-          DB_NAME: demo
-
-      - name: Запуск тестов
-        run: poetry run pytest tests/test_database.py
-        env:
-          POSTGRES_HOST: postgres
-          POSTGRES_PORT: 5433
-          DB_USER: demo
-          DB_PASSWORD: demo
-          DB_NAME: demo
-
-  vm-job:
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:10.8
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-        ports:
-          - 5433/tcp
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         volumes:
           - ./init:/docker-entrypoint-initdb.d
@@ -88,26 +39,75 @@ jobs:
           pip install poetry
           poetry install
 
-      - name: Инициализация базы данных
-        run: ./init/init-db.sh
+      - name: Ожидание готовности PostgreSQL
+        run: |
+          for i in {1..10}; do
+            if pg_isready -h postgres -p 5432 -U postgres; then
+              echo "PostgreSQL готов"
+              exit 0
+            fi
+            echo "Ожидание PostgreSQL... ($i/10)"
+            sleep 2
+          done
+          echo "PostgreSQL не запустился"
+          exit 1
+
+      - name: Запуск тестов
+        run: poetry run pytest tests/test_database.py
+        env:
+          POSTGRES_HOST: postgres
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: demo
+          POSTGRES_PASSWORD: demo
+          POSTGRES_DB: demo
+
+  vm-job:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
-          DB_USER: demo
-          DB_PASSWORD: demo
-          DB_NAME: demo
+        ports:
+          - 5433:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+        volumes:
+          - ./init:/docker-entrypoint-initdb.d
+
+    steps:
+      - uses: actions/checkout@v4
+      - run: ls -la
+
+      - name: Установка Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Установка Poetry и зависимостей
+        run: |
+          pip install poetry
+          poetry install
+
+      - name: Ожидание готовности PostgreSQL
+        run: |
+          for i in {1..10}; do
+            if pg_isready -h localhost -p 5433 -U postgres; then
+              echo "PostgreSQL готов"
+              exit 0
+            fi
+            echo "Ожидание PostgreSQL... ($i/10)"
+            sleep 2
+          done
+          echo "PostgreSQL не запустился"
+          exit 1
 
       - name: Применение миграций с Alembic
         run: |
           poetry run alembic upgrade head
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-          DB_USER: demo
-          DB_PASSWORD: demo
-          DB_NAME: demo
           DATABASE_URL: postgresql://demo:demo@localhost:5433/demo
 
       - name: Запуск тестов
@@ -115,6 +115,6 @@ jobs:
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5433
-          DB_USER: demo
-          DB_PASSWORD: demo
-          DB_NAME: demo
+          POSTGRES_USER: demo
+          POSTGRES_PASSWORD: demo
+          POSTGRES_DB: demo
