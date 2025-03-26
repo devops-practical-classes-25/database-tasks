@@ -14,7 +14,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres  # Используется последняя версия PostgreSQL
+        image: postgres 
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -23,7 +23,7 @@ jobs:
           - 5433:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         volumes:
-          - ./init:/docker-entrypoint-initdb.d  # Скрипты выполняются автоматически
+          - ./init:/docker-entrypoint-initdb.d
 
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +53,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres  # Используется последняя версия PostgreSQL
+        image: postgres
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -62,7 +62,7 @@ jobs:
           - 5433/tcp
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         volumes:
-          - ./init:/docker-entrypoint-initdb.d  # Автоинициализация БД
+          - ./init:/docker-entrypoint-initdb.d
 
     steps:
       - uses: actions/checkout@v4
