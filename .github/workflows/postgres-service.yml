@@ -14,7 +14,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres 
+        image: postgres
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -27,26 +27,28 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - run: ls -la
 
-      - name: Установка Python
+      - name: Просмотр содержимого
+        run: ls -la
+
+      - name: Установка Python 3.12
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Установка Poetry и зависимостей
         run: |
           pip install poetry
           poetry install
 
-      - name: Запуск тестов
+      - name: Запуск тестов (container-job)
         run: poetry run pytest tests/test_database.py
         env:
-          POSTGRES_HOST: postgres
+          POSTGRES_HOST: postgres   # т.к. внутри контейнерной сети
           POSTGRES_PORT: 5433
-          DB_USER: demo
-          DB_PASSWORD: demo
-          DB_NAME: demo
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: postgres
 
   vm-job:
     runs-on: ubuntu-latest
@@ -66,35 +68,36 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - run: ls -la
 
-      - name: Установка Python
+      - name: Просмотр содержимого
+        run: ls -la
+
+      - name: Установка Python 3.12
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Установка Poetry и зависимостей
         run: |
           pip install poetry
           poetry install
 
-      - name: Применение миграций с Alembic
+      - name: Применение миграций (Alembic)
         run: |
           poetry run alembic upgrade head
         env:
+          # Если alembic читает DATABASE_URL — указываем суперпользователя
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5433/postgres
+          # Также можно передать эти же переменные, если у вас они используются
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
-          DB_USER: demo
-          DB_PASSWORD: demo
-          DB_NAME: demo
-          DATABASE_URL: postgresql://demo:demo@localhost:5433/demo
 
-      - name: Запуск тестов
+      - name: Запуск тестов (vm-job)
         run: poetry run pytest tests/test_database.py
         env:
-          POSTGRES_HOST: localhost
+          POSTGRES_HOST: localhost  # на VM доступен по localhost:5433
           POSTGRES_PORT: 5433
-          DB_USER: demo
-          DB_PASSWORD: demo
-          DB_NAME: demo
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: postgres
