@@ -24,14 +24,7 @@ jobs:
           DB_NAME: demo
         ports:
           - 5433:5432
-        options: >-
-          --env DB_USER=demo
-          --env DB_PASSWORD=demo
-          --env DB_NAME=demo
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         volumes:
           - ./init:/docker-entrypoint-initdb.d
 
@@ -40,9 +33,6 @@ jobs:
 
       - name: Просмотр содержимого
         run: ls -la
-
-      - name: Ожидание готовности БД
-        run: sleep 10
 
       - name: Установка Python 3.12
         uses: actions/setup-python@v4
@@ -59,8 +49,8 @@ jobs:
         env:
           POSTGRES_HOST: postgres
           POSTGRES_PORT: 5433
-          DB_USER: demo
-          DB_PASSWORD: demo
+          DB_USER: postgres
+          DB_PASSWORD: postgres
           DB_NAME: demo
 
   vm-job:
@@ -77,15 +67,8 @@ jobs:
           DB_PASSWORD: demo
           DB_NAME: demo
         ports:
-          - 5433:5432
-        options: >-
-          --env DB_USER=demo
-          --env DB_PASSWORD=demo
-          --env DB_NAME=demo
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          - 5433/tcp
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         volumes:
           - ./init:/docker-entrypoint-initdb.d
 
@@ -94,9 +77,6 @@ jobs:
 
       - name: Просмотр содержимого
         run: ls -la
-
-      - name: Ожидание готовности БД
-        run: sleep 10
 
       - name: Установка Python 3.12
         uses: actions/setup-python@v4
@@ -107,12 +87,12 @@ jobs:
         run: |
           pip install poetry
           poetry install
-
+          
       - name: Запуск тестов (vm-job)
         run: poetry run pytest tests/test_database.py
         env:
-          POSTGRES_HOST: postgres
+          POSTGRES_HOST: localhost
           POSTGRES_PORT: 5433
-          DB_USER: demo
-          DB_PASSWORD: demo
+          DB_USER: postgres
+          DB_PASSWORD: postgres
           DB_NAME: demo
