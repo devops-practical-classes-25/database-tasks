@@ -1,16 +1,19 @@
-name: Postgres Service Example
+name: Database Auto Test
 
 on:
   push:
-    branches:
-      - "*"
+    branches: ['*']
   pull_request:
-    branches:
-      - "*"
+    branches: ['*']
 
 jobs:
-  container-job:
+  test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        config:
+          - { host: localhost, port: 5432 }
+          - { host: postgres, port: 5432 }
 
     services:
       postgres:
@@ -18,74 +21,46 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: demo
+          POSTGRES_DB: postgres
         ports:
-          - 5433:5432
+          - 5432:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-        volumes:
-          - ./init:/docker-entrypoint-initdb.d
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Просмотр содержимого
-        run: ls -la
-
-      - name: Установка Python 3.12
-        uses: actions/setup-python@v4
+      
+      - name: Set up Python 3.12
+        id: setup-python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-
-      - name: Установка Poetry и зависимостей
+          python-version: '3.12'
+          
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          virtualenvs-path: .venv
+          installer-parallel: true
+          
+      - name: Cache virtual environment
+        uses: actions/cache@v4
+        id: cache-venv
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          
+      - name: Install dependencies
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+      
+      - name: Run tests
         run: |
-          pip install poetry
-          poetry install
-      - name: Запуск тестов (container-job)
-        run: poetry run pytest tests/test_database.py
+          source .venv/bin/activate
+          poetry run pytest -v
         env:
-          POSTGRES_HOST: postgres
-          POSTGRES_PORT: 5433
-          DB_USER: postgres
-          DB_PASSWORD: postgres
-          DB_NAME: demo
-
-  vm-job:
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres
-        env:
+          POSTGRES_HOST: ${{ matrix.config.host }}
+          POSTGRES_PORT: ${{ matrix.config.port }}
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: demo
-        ports:
-          - 5433/tcp
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-        volumes:
-          - ./init:/docker-entrypoint-initdb.d
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Просмотр содержимого
-        run: ls -la
-
-      - name: Установка Python 3.12
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.12"
-
-      - name: Установка Poetry и зависимостей
-        run: |
-          pip install poetry
-          poetry install
-
-      - name: Запуск тестов (vm-job)
-        run: poetry run pytest tests/test_database.py
-        env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5433
-          DB_USER: postgres
-          DB_PASSWORD: postgres
-          DB_NAME: demo
+          POSTGRES_DB: postgres
