@@ -1,67 +1,87 @@
--- Создание таблицы авторов
-CREATE TABLE author (
+-- Удаление данных перед вставкой, сброс ID
+TRUNCATE TABLE Orders_Item RESTART IDENTITY CASCADE;
+TRUNCATE TABLE Orders RESTART IDENTITY CASCADE;
+TRUNCATE TABLE Product RESTART IDENTITY CASCADE;
+TRUNCATE TABLE Customer RESTART IDENTITY CASCADE;
+
+-- 1. Создание таблицы клиентов
+CREATE TABLE IF NOT EXISTS Customer (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    birth_year INTEGER NOT NULL
+    email VARCHAR(255) UNIQUE NOT NULL
 );
 
--- Создание таблицы книг
-CREATE TABLE book (
-    id SERIAL PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    author_id INTEGER NOT NULL,
-    year_published INTEGER NOT NULL,
-    FOREIGN KEY (author_id) REFERENCES author(id) ON DELETE CASCADE
-);
-
--- Создание таблицы читателей
-CREATE TABLE reader (
+-- 2. Создание таблицы товаров
+CREATE TABLE IF NOT EXISTS Product (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE
+    price DECIMAL(10, 2) NOT NULL CHECK (price > 0)
 );
 
--- Создание таблицы выдачи книг
-CREATE TABLE loan (
+-- 3. Создание таблицы заказов
+CREATE TABLE IF NOT EXISTS Orders (
     id SERIAL PRIMARY KEY,
-    book_id INTEGER NOT NULL,
-    reader_id INTEGER NOT NULL,
-    loan_date DATE NOT NULL,
-    return_date DATE NULL,
-    FOREIGN KEY (book_id) REFERENCES book(id) ON DELETE CASCADE,
-    FOREIGN KEY (reader_id) REFERENCES reader(id) ON DELETE CASCADE
+    customer_id INTEGER NOT NULL,
+    order_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    FOREIGN KEY (customer_id) REFERENCES Customer(id) ON DELETE CASCADE
 );
 
--- Наполнение таблицы author тестовыми данными
-INSERT INTO author (name, birth_year) VALUES
-('Лев Толстой', 1828),
-('Фёдор Достоевский', 1821),
-('Антон Чехов', 1860);
+-- 4. Создание таблицы позиций заказа
+CREATE TABLE IF NOT EXISTS Orders_Item (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    FOREIGN KEY (order_id) REFERENCES Orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES Product(id) ON DELETE RESTRICT
+);
 
--- Наполнение таблицы book тестовыми данными
-INSERT INTO book (title, author_id, year_published) VALUES
-('Война и мир', 1, 1869),
-('Преступление и наказание', 2, 1866),
-('Чайка', 3, 1896);
+-- 5. Наполнение таблицы клиентов тестовыми данными
+INSERT INTO Customer (name, email) VALUES
+('Иван Петров', 'ivan@mail.com'),
+('Анна Иванова', 'anna@mail.com'),
+('Сергей Сидоров', 'sergey@mail.com')
+ON CONFLICT (email) DO NOTHING;
 
--- Наполнение таблицы reader тестовыми данными
-INSERT INTO reader (name, email) VALUES
-('Иван Иванов', 'ivanov@example.com'),
-('Мария Смирнова', 'smirnova@example.com'),
-('Алексей Петров', 'petrov@example.com');
+-- 6. Наполнение таблицы товаров тестовыми данными
+INSERT INTO Product (name, price) VALUES
+('Телефон', 20000.00),
+('Ноутбук', 60000.00),
+('Планшет', 30000.00),
+('Наушники', 5000.00)
+ON CONFLICT (name) DO NOTHING;
 
--- Наполнение таблицы loan тестовыми данными
-INSERT INTO loan (book_id, reader_id, loan_date, return_date) VALUES
-(1, 1, '2024-03-01', NULL),
-(2, 2, '2024-02-20', '2024-03-10'),
-(3, 3, '2024-03-05', NULL);
+-- 7. Наполнение таблицы заказов тестовыми данными
+INSERT INTO Orders (customer_id, order_date) VALUES
+(1, '2024-03-10'),
+(2, '2024-03-12'),
+(1, '2024-03-15'),
+(2, '2024-03-16')
+ON CONFLICT DO NOTHING;
 
--- SQL-запрос для получения списка книг, которые находятся у читателей на руках
+-- 8. Наполнение таблицы позиций заказа тестовыми данными
+INSERT INTO Orders_Item (order_id, product_id, quantity) VALUES
+(1, 1, 1),
+(2, 2, 1),
+(3, 1, 2),
+(4, 3, 1)
+ON CONFLICT DO NOTHING;
+
+-- 9. SQL-запрос: список заказов с информацией о клиентах и товарах
 SELECT 
-    book.title AS "Название книги",
-    reader.name AS "Читатель",
-    loan.loan_date AS "Дата выдачи"
-FROM loan
-JOIN book ON loan.book_id = book.id
-JOIN reader ON loan.reader_id = reader.id
-WHERE loan.return_date IS NULL;
+    o.id AS order_id,
+    c.name AS customer_name,
+    p.name AS product_name,
+    oi.quantity,
+    p.price,
+    (oi.quantity * p.price) AS total_price,
+    o.order_date
+FROM 
+    Orders o
+JOIN 
+    Customer c ON o.customer_id = c.id
+JOIN 
+    Orders_Item oi ON o.id = oi.order_id
+JOIN 
+    Product p ON oi.product_id = p.id;
+
