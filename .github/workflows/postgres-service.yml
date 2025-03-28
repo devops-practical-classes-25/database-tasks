@@ -1,19 +1,16 @@
-name: Database Auto Test
+name: Postgres Service Example
 
 on:
   push:
-    branches: ['*']
+    branches:
+      - '*'
   pull_request:
-    branches: ['*']
+    branches:
+      - main
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        config:
-          - { host: localhost, port: 5432 }
-          - { host: postgres, port: 5432 }
 
     services:
       postgres:
@@ -28,13 +25,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up Python 3.12
+      - name: Set up python
         id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          
       - name: Install Poetry
         uses: snok/install-poetry@v1
         with:
@@ -42,25 +37,22 @@ jobs:
           virtualenvs-in-project: true
           virtualenvs-path: .venv
           installer-parallel: true
-          
-      - name: Cache virtual environment
+      - name: Load cached venv
+        id: cached-poetry-dependencies
         uses: actions/cache@v4
-        id: cache-venv
         with:
           path: .venv
           key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
-          
       - name: Install dependencies
-        if: steps.cache-venv.outputs.cache-hit != 'true'
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-root
-      
       - name: Run tests
         run: |
           source .venv/bin/activate
           poetry run pytest -v
         env:
-          POSTGRES_HOST: ${{ matrix.config.host }}
-          POSTGRES_PORT: ${{ matrix.config.port }}
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres

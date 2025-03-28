@@ -5,11 +5,11 @@ class Settings(BaseSettings):
     """Класс конфигурируемые параметры приложения. Параметры могут быть переопределены
     в файле .env в корне проекта или через переменные окружения."""
 
-    DB_HOST: str = "localhost"
-    DB_PORT: int = 5433
-    DB_USER: str = "demo"
-    DB_PASSWORD: str = "demo"
-    DB_NAME: str = "demo"
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5433
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_DB: str = "postgres"
 
     model_config = SettingsConfigDict(
         env_file=".env",
