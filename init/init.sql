@@ -1,115 +1,78 @@
-DROP TABLE IF EXISTS grades CASCADE;
-DROP TABLE IF EXISTS courses CASCADE;
-DROP TABLE IF EXISTS students CASCADE;
+DROP TABLE IF EXISTS order_items CASCADE;
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS menu_items CASCADE;
+DROP TABLE IF EXISTS customers CASCADE;
 
-CREATE TABLE students (
+-- Создание таблицы клиентов
+CREATE TABLE customers (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    group_name VARCHAR(50) NOT NULL
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL
 );
 
-CREATE TABLE courses (
+-- Создание таблицы блюд
+CREATE TABLE menu_items (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE
+    name VARCHAR(255) NOT NULL,
+    price DECIMAL(10,2) NOT NULL
 );
 
-CREATE TABLE grades (
+-- Создание таблицы заказов
+CREATE TABLE orders (
     id SERIAL PRIMARY KEY,
-    student_id INT NOT NULL REFERENCES students(id),
-    course_id INT NOT NULL REFERENCES courses(id),
-    grade INT NOT NULL CHECK (grade BETWEEN 1 AND 10),
-    date DATE NOT NULL DEFAULT CURRENT_DATE
+    customer_id INTEGER NOT NULL REFERENCES customers(id),
+    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    total_price DECIMAL(10,2) DEFAULT 0.00
 );
 
-INSERT INTO students (name, group_name) VALUES
-('Иван Петров', 'РИС'),
-('Анна Иванова', 'Юриспруденция'),
-('Сергей Смирнов', 'РИС'),
-('Мария Кузнецова', 'Дизайн'),
-('Алексей Васильев', 'Юриспруденция');
-
-INSERT INTO courses (name) VALUES
-('Математика'),
-('Физика'),
-('История');
-
-INSERT INTO grades (student_id, course_id, grade, date) VALUES
-(1, 1, 10, '2024-03-01'),
-(1, 2, 8, '2024-03-02'),
-(2, 1, 9, '2024-03-03'),
-(2, 3, 10, '2024-03-04'),
-(3, 2, 7, '2024-03-05'),
-(3, 3, 9, '2024-03-06'),
-(4, 1, 10, '2024-03-07'),
-(4, 2, 10, '2024-03-08'),
-(5, 3, 6, '2024-03-09'),
-(5, 1, 8, '2024-03-10'),
-(1, 1, 10, '2024-03-11'),
-(2, 1, 9, '2024-03-12'),
-(3, 2, 10, '2024-03-13'),
-(4, 3, 7, '2024-03-14'),
-(5, 2, 8, '2024-03-15');
-
--- 1. Средний балл каждого студента
-SELECT 
-    s.id,
-    s.name,
-    s.group_name,
-    ROUND(AVG(g.grade)::NUMERIC, 2)::FLOAT AS average_grade
-FROM students s
-LEFT JOIN grades g ON s.id = g.student_id
-GROUP BY s.id
-ORDER BY average_grade DESC;
-
--- 2. Средний балл по каждому курсу
-SELECT 
-    c.id,
-    c.name,
-    ROUND(AVG(g.grade)::NUMERIC, 2)::FLOAT AS course_avg
-FROM courses c
-LEFT JOIN grades g ON c.id = g.course_id
-GROUP BY c.id
-ORDER BY course_avg DESC;
-
--- 3. Количество студентов в группах
-SELECT 
-    group_name,
-    COUNT(*) AS students_count
-FROM students
-GROUP BY group_name
-ORDER BY students_count DESC;
-
--- 4. Студент с максимальным средним баллом
-SELECT 
-    s.name,
-    ROUND(AVG(g.grade), 2) AS max_avg
-FROM students s
-JOIN grades g ON s.id = g.student_id
-GROUP BY s.id
-ORDER BY max_avg DESC
-LIMIT 1;
-
--- 5. Студенты без оценок по курсу "История"
-SELECT 
-    s.id,
-    s.name,
-    s.group_name
-FROM students s
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM grades g
-    JOIN courses c ON g.course_id = c.id
-    WHERE g.student_id = s.id 
-    AND c.name = 'История'
+-- Создание таблицы состава заказа
+CREATE TABLE order_items (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    menu_item_id INTEGER NOT NULL REFERENCES menu_items(id),
+    quantity INTEGER NOT NULL CHECK (quantity > 0)
 );
 
--- 6. Курс с наибольшим количеством оценок "10"
-SELECT 
-    c.name,
-    COUNT(*) AS tens_count
-FROM courses c
-JOIN grades g ON c.id = g.course_id
-WHERE g.grade = 10
-GROUP BY c.id
-ORDER BY tens_count DESC
-LIMIT 1;
+-- Хранимая процедура для создания заказа
+CREATE OR REPLACE FUNCTION place_order(customer_id INT, item_ids INT[], quantities INT[]) RETURNS VOID AS $$
+DECLARE
+    new_order_id INT;
+    i INT;
+BEGIN
+    -- Создаем новый заказ
+    INSERT INTO orders (customer_id) VALUES (customer_id) RETURNING id INTO new_order_id;
+    
+    -- Добавляем блюда в заказ
+    FOR i IN 1..array_length(item_ids, 1) LOOP
+        INSERT INTO order_items (order_id, menu_item_id, quantity)
+        VALUES (new_order_id, item_ids[i], quantities[i]);
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Триггер для автоматического расчета стоимости заказа
+CREATE OR REPLACE FUNCTION update_order_total() RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE orders
+    SET total_price = (
+        SELECT COALESCE(SUM(m.price * oi.quantity), 0)
+        FROM order_items oi
+        JOIN menu_items m ON oi.menu_item_id = m.id
+        WHERE oi.order_id = NEW.order_id
+    )
+    WHERE id = NEW.order_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_order_total
+AFTER INSERT OR UPDATE ON order_items
+FOR EACH ROW
+EXECUTE FUNCTION update_order_total();
+
+-- Наполнение базы тестовыми данными
+INSERT INTO customers (name, email) VALUES ('Иван Иванов', 'ivan@example.com'), ('Мария Смирнова', 'maria@example.com');
+INSERT INTO menu_items (name, price) VALUES ('Пицца', 500.00), ('Салат', 250.00), ('Суп', 300.00);
+
+-- Тестовый вызов хранимой процедуры
+SELECT place_order(1, ARRAY[1, 2], ARRAY[1, 2]);

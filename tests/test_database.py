@@ -1,4 +1,4 @@
-import datetime
+import pytest
 from sqlalchemy import text
 
 def test_db_connection(db_session):
@@ -6,127 +6,74 @@ def test_db_connection(db_session):
     result = db_session.execute(text("SELECT 1"))
     assert result.scalar() == 1
 
-def test_students_data(db_session):
-    """Проверка данных студентов"""
-    result = db_session.execute(
-        text("SELECT name, group_name FROM students ORDER BY id")
+def test_insert_customer(db_session):
+    """Проверяет добавление клиента"""
+    db_session.execute(text("INSERT INTO customers (name, email) VALUES ('Тестовый Клиент', 'test@example.com')"))
+    db_session.commit()
+    result = db_session.execute(text("SELECT name, email FROM customers WHERE email = 'test@example.com'"))
+    data = result.fetchone()
+    assert data == ('Тестовый Клиент', 'test@example.com')
+
+def test_insert_menu_item(db_session):
+    """Проверяет добавление блюда в меню"""
+    db_session.execute(text("INSERT INTO menu_items (name, price) VALUES ('Тестовое блюдо', 150.00)"))
+    db_session.commit()
+    result = db_session.execute(text("SELECT name, price FROM menu_items WHERE name = 'Тестовое блюдо'"))
+    data = result.fetchone()
+    assert data == ('Тестовое блюдо', 150.00)
+
+def test_create_order(db_session):
+    """Проверяет создание заказа и корректность расчета стоимости"""
+
+    db_session.execute(text("INSERT INTO customers (name, email) VALUES ('Покупатель', 'customer@example.com')"))
+    
+    db_session.execute(text("INSERT INTO menu_items (name, price) VALUES ('Пицца', 500.00), ('Салат', 250.00)"))
+    db_session.commit()
+
+    menu_items = db_session.execute(text("SELECT id, name, price FROM menu_items")).fetchall()
+    print("Содержимое menu_items:", menu_items)  
+
+    pizza_id = None
+    salad_id = None
+    for item in menu_items:
+        if item[1] == "Пицца":
+            pizza_id = item[0]
+        elif item[1] == "Салат":
+            salad_id = item[0]
+
+    assert pizza_id is not None, "ID Пиццы не найден!"
+    assert salad_id is not None, "ID Салата не найден!"
+
+    db_session.execute(text("INSERT INTO orders (customer_id) VALUES (1)"))
+    db_session.commit()
+
+    order_id = db_session.execute(text("SELECT id FROM orders ORDER BY id DESC LIMIT 1")).scalar()
+    assert order_id is not None, "ID заказа не найден!"
+
+    db_session.execute(
+        text("INSERT INTO order_items (order_id, menu_item_id, quantity) VALUES (:order_id, :pizza_id, 1), (:order_id, :salad_id, 2)"),
+        {"order_id": order_id, "pizza_id": pizza_id, "salad_id": salad_id}
     )
-    data = result.fetchall()
-    assert data == [
-        ('Иван Петров', 'РИС'),
-        ('Анна Иванова', 'Юриспруденция'),
-        ('Сергей Смирнов', 'РИС'),
-        ('Мария Кузнецова', 'Дизайн'),
-        ('Алексей Васильев', 'Юриспруденция')
-    ]
+    db_session.commit()
 
-def test_courses_data(db_session):
-    """Проверка данных курсов"""
-    result = db_session.execute(
-        text("SELECT name FROM courses ORDER BY id")
-    )
-    data = result.fetchall()
-    assert data == [('Математика',), ('Физика',), ('История',)]
+    order_items = db_session.execute(text("SELECT * FROM order_items")).fetchall()
+    print("Содержимое order_items:", order_items)
 
-def test_grades_data(db_session):
-    """Проверка данных оценок"""
-    result = db_session.execute(
-        text("SELECT student_id, course_id, grade FROM grades ORDER BY id")
-    )
-    data = result.fetchall()
-    assert len(data) == 15
-    assert (1, 1, 10) in data
-    assert (5, 2, 8) in data
+    result = db_session.execute(text("SELECT id, customer_id, total_price FROM orders WHERE id = :order_id"),
+                                {"order_id": order_id})
+    order_data = result.fetchone()
+    print("Содержимое orders:", order_data)
 
-def test_avg_student_grades(db_session):
-    """Проверка среднего балла студентов"""
-    result = db_session.execute(text("""
-        SELECT s.name, ROUND(AVG(g.grade), 2)
-        FROM students s
-        LEFT JOIN grades g ON s.id = g.student_id
-        GROUP BY s.id
-        ORDER BY AVG(g.grade) DESC
-    """))
-    data = result.fetchall()
+    assert order_data is not None, "Заказ не найден!"
     
-    ivan = next(x for x in data if x[0] == 'Иван Петров')
-    assert float(ivan[1]) == 9.33
-    
-    maria = next(x for x in data if x[0] == 'Мария Кузнецова')
-    assert maria[1] == 9.0
+    expected_total_price = 500.00 * 1 + 250.00 * 2
+    assert order_data[2] == expected_total_price, f"Ожидалось {expected_total_price}, а получено {order_data[2]}"
 
-def test_avg_course_grades(db_session):
-    """Проверка среднего балла по курсам"""
-    result = db_session.execute(text("""
-        SELECT c.name, ROUND(AVG(g.grade), 2)
-        FROM courses c
-        LEFT JOIN grades g ON c.id = g.course_id
-        GROUP BY c.id
-        ORDER BY c.id
-    """))
-    data = result.fetchall()
+def test_place_order_procedure(db_session):
+    """Проверяет хранимую процедуру place_order"""
+    db_session.execute(text("SELECT place_order(1, ARRAY[1, 2], ARRAY[1, 1])"))
+    db_session.commit()
     
-    assert (data[0][0], float(data[0][1])) == ('Математика', 9.33)
-    assert (data[1][0], float(data[1][1])) == ('Физика', 8.6)
-    assert (data[2][0], float(data[2][1])) == ('История', 8.0)
-
-def test_group_students_count(db_session):
-    """Проверка количества студентов в группах"""
-    result = db_session.execute(text("""
-        SELECT group_name, COUNT(*)
-        FROM students
-        GROUP BY group_name
-        ORDER BY COUNT(*) DESC
-    """))
-    data = result.fetchall()
-    
-    assert data == [
-        ('РИС', 2),
-        ('Юриспруденция', 2),
-        ('Дизайн', 1)
-    ]
-
-def test_top_student(db_session):
-    """Проверка студента с максимальным средним баллом"""
-    result = db_session.execute(text("""
-        SELECT s.name, ROUND(AVG(g.grade), 2)
-        FROM students s
-        JOIN grades g ON s.id = g.student_id
-        GROUP BY s.id
-        ORDER BY AVG(g.grade) DESC
-        LIMIT 1
-    """))
-    top_student = result.fetchone()
-    
-    assert float(top_student[1]) == 9.33
-    assert top_student[0] in ['Иван Петров', 'Анна Иванова']
-
-def test_students_without_history_grades(db_session):
-    """Проверка студентов без оценок по истории"""
-    result = db_session.execute(text("""
-        SELECT s.name
-        FROM students s
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM grades g
-            JOIN courses c ON g.course_id = c.id
-            WHERE g.student_id = s.id AND c.name = 'История'
-        )
-    """))
-    data = [row[0] for row in result.fetchall()]
-    assert len(data) == 1
-
-def test_most_tens_course(db_session):
-    """Проверка курса с наибольшим количеством 10"""
-    result = db_session.execute(text("""
-        SELECT c.name, COUNT(*)
-        FROM courses c
-        JOIN grades g ON c.id = g.course_id
-        WHERE g.grade = 10
-        GROUP BY c.id
-        ORDER BY COUNT(*) DESC
-        LIMIT 1
-    """))
-    course = result.fetchone()
-    
-    assert course == ('Математика', 3)
+    result = db_session.execute(text("SELECT COUNT(*) FROM orders WHERE customer_id = 1"))
+    count_orders = result.scalar()
+    assert count_orders == 2
