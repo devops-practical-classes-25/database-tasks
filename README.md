@@ -22,6 +22,11 @@
 4. Добавьте тестовые данные (не менее 2-3 записей в каждой таблице).
 
 5. Напишите SQL-запрос, который позволяет получить список всех заказов с указанием клиента, наименования товаров и их количества.
+6. Постройте диаграмму нормализованной базы данных и сохранить её в отдельном .md файле. Вы можете использовать один из следующих способов:
+
+   + установить расширение для VS Code: vscode-mermaid и отобразить диаграмму прямо в редакторе;
+
+   + использовать онлайн-редактор Mermaid для создания диаграммы в формате erDiagram.
 
 ## Теоретическая информация
 
@@ -69,7 +74,7 @@ CREATE TABLE Students (
 | 1          | Иван Петров |
 | 2          | Анна Иванова |
 
-1. Выделяем таблицу `Courses`
+2. Выделяем таблицу `Courses`
 
 ```sql
 CREATE TABLE Courses (
@@ -84,7 +89,7 @@ CREATE TABLE Courses (
 | 1          | Математика |
 | 2          | Физика |
 
-1. Создаем таблицу `Enrollment` (Записи на курсы)
+3. Создаем таблицу `Enrollment` (Записи на курсы)
 
 ```sql
 CREATE TABLE Enrollment (
@@ -102,6 +107,29 @@ CREATE TABLE Enrollment (
 | 1            | 1          | 1         | 2024-01-10      |
 | 2            | 2          | 2         | 2024-01-12      |
 | 3            | 1          | 2         | 2024-01-15      |
+
+4. Диаграмма связи таблиц (ER-диаграмма):
+
+```mermaid
+erDiagram
+    Students {
+        int student_id PK
+        varchar name
+    }
+    Courses {
+        int course_id PK
+        varchar name
+    }
+    Enrollment {
+        int enrollment_id PK
+        int student_id FK
+        int course_id FK
+        date enrollment_date
+    }
+
+    Students ||--o{ Enrollment : "enrolled in"
+    Courses ||--o{ Enrollment : "includes"
+```
 
 **Итог:**
 
